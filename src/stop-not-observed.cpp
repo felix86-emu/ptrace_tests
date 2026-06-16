@@ -1,0 +1,36 @@
+#include "common.h"
+
+TEST_MAIN;
+
+constexpr u64 value = 0xABCDEF0123456789;
+
+int tracee_main(pid_t parent) {
+    *shared_u64 = value;
+    ASSERT(ptrace(PTRACE_TRACEME, 0, 0, 0) == 0);
+    ASSERT(raise(SIGSTOP) == 0);
+
+    u16 buffer = 0;
+    ASSERT(read(pipedes[0], &buffer, 2) == 2);
+    ASSERT(buffer == 0xCAFE);
+    return 0;
+}
+
+int tracer_main(pid_t tracee) {
+    usleep(500000); // give enough time to child to enter stop, but don't ensure it with waitpid
+    u64 result = ptrace(PTRACE_PEEKDATA, tracee, shared_u64, nullptr);
+#ifdef __x86_64__
+    ASSERT(result == value);
+#else
+    ASSERT(result == (u32)value);
+#endif
+    ASSERT(ptrace(PTRACE_CONT, tracee, 0, 0) == 0);
+
+    u16 buffer = 0xCAFE;
+    ASSERT(write(pipedes[1], &buffer, 2) == 2);
+    ASSERT(wait_exit(tracee));
+    return 0;
+}
+
+int execve_main() {
+    ASSERT(false);
+}
