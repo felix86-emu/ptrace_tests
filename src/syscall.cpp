@@ -1,4 +1,3 @@
-#include <sys/user.h>
 #include "common.h"
 
 TEST_MAIN;

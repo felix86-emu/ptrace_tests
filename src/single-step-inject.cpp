@@ -1,4 +1,3 @@
-#include <sys/syscall.h>
 #include "common.h"
 
 TEST_MAIN;
