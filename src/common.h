@@ -1,5 +1,6 @@
 #include <atomic>
 #include <cstring>
+#include <filesystem>
 #include <string>
 #include <errno.h>
 #include <fcntl.h>
@@ -78,6 +79,23 @@ static u64* shared_u64 = nullptr;
             return tracer_main(child);                                                                                                               \
         }                                                                                                                                            \
     }
+
+inline std::filesystem::path get_executable_dir() {
+    return std::filesystem::canonical("/proc/self/exe").parent_path();
+}
+
+inline void execve_other(const std::string& path) {
+    std::string pipe_0 = std::to_string(pipedes[0]);
+    std::string pipe_1 = std::to_string(pipedes[1]);
+    std::string smemfd = std::to_string(memfd);
+    ASSERT(setenv("__EXECVE_PROCESS", "1", 0) == 0);
+    ASSERT(setenv("__PIPE_0", pipe_0.c_str(), 1) == 0);
+    ASSERT(setenv("__PIPE_1", pipe_1.c_str(), 1) == 0);
+    ASSERT(setenv("__MEMFD", smemfd.c_str(), 1) == 0);
+    char* const args[] = {nullptr};
+    execve(path.c_str(), args, environ);
+    ASSERT(false);
+}
 
 inline void execve_self() {
     std::string pipe_0 = std::to_string(pipedes[0]);
