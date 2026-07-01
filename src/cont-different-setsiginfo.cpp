@@ -2,24 +2,16 @@
 
 TEST_MAIN;
 
-pid_t tracer_pid;
-uid_t tracer_uid;
 bool signal_happened = false;
 
 void signal_handler(int sig, siginfo_t* info, void* ctx) {
     ASSERT(sig == SIGUSR2);
-    ASSERT(info->si_value.sival_int == 0);
-    ASSERT(info->si_code == SI_USER);
-    ASSERT(info->si_signo == SIGUSR2);
-    ASSERT(info->si_errno == 0);
-    ASSERT(info->si_pid == tracer_pid);
-    ASSERT(info->si_uid == tracer_uid);
+    ASSERT(info->si_value.sival_int == 0x12345678);
+    ASSERT(info->si_code == -10);
     signal_happened = true;
 }
 
 int tracee_main(pid_t parent) {
-    tracer_pid = parent;
-    tracer_uid = getuid();
     struct sigaction sa;
     sa.sa_sigaction = signal_handler;
     sa.sa_flags = SA_SIGINFO;
@@ -41,6 +33,12 @@ int tracer_main(pid_t tracee) {
     ASSERT(WIFSTOPPED(status) == true);
     ASSERT(WSTOPSIG(status) == SIGUSR1);
     ASSERT((status >> 8) == SIGUSR1);
+    siginfo_t info;
+    memset(&info, 0, sizeof(info));
+    info.si_code = -10;
+    info.si_signo = SIGUSR2;
+    info.si_value.sival_int = 0x12345678;
+    ASSERT(ptrace(PTRACE_SETSIGINFO, tracee, 0, &info) == 0);
     // Change the signal to a SIGUSR2
     ASSERT(ptrace(PTRACE_CONT, tracee, 0, SIGUSR2) == 0);
     ASSERT(wait_exit(tracee));
